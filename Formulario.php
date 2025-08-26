@@ -14,7 +14,7 @@ $error = "";
 $rutaArchivo = "";
 $xlsxFile = "";
 
-
+//verifica si el directorio existe en el sistema al momento de leer el codigo
 $directorio = "uploads/";
 if (!file_exists($directorio)) {
     mkdir($directorio, 0777, true);
@@ -33,9 +33,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $list_relleno = isset($_POST['list']) ? $_POST['list'] : "";
     $excel_relleno = isset($_POST['excel']) ? $_POST['excel'] : "";
 
+    //Si la opcion Otro es seleccionada, un nuevo campo de texto se abre
     if ($sexo_relleno == "Otro" && isset($_POST['especifique'])) {
         $sexo_relleno = $_POST['especifique'];
     }
+    
     if (isset($_FILES["photo"])) {
         $nombreArchivo = basename($_FILES["photo"]["name"]);
         $rutaArchivo = $directorio . $nombreArchivo;
@@ -46,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 } else {
     echo "No se recibió ninguna imagen.";
 }
-
+//Verifica que el archivo existe
 $archivo = basename($_FILES["list"]["name"]);
 
 if (file_exists($archivo)) {
@@ -54,39 +56,93 @@ if (file_exists($archivo)) {
 } else {
     echo "<p style='color:red;'>El archivo <strong>$archivo</strong> no existe.</p>";
 }
+//Comprueba la extension del archivo y extrae los datos
+function procesarCSV($archivo) {
+    $datos = [];
+    if (($handle = fopen($archivo, "r")) !== FALSE) {
+        while (($fila = fgetcsv($handle, 1000, ",")) !== FALSE) {
+            $datos[] = $fila;
+        }
+        fclose($handle);
+    }
+    return $datos;
+}
+//Comprueba la extension del archivo y extrae los datos
+function procesarXLSX($archivo) {
+    $datos = [];
+    $zip = new ZipArchive;
+    if ($zip->open($archivo) === TRUE) {
+        $sharedStrings = [];
+        if (($xmlStrings = $zip->getFromName("xl/sharedStrings.xml")) !== false) {
+            $xmlStrings = simplexml_load_string($xmlStrings);
+            foreach ($xmlStrings->si as $item) {
+                $sharedStrings[] = (string) $item->t;
+            }
+        }
+        //extrae los datos y los organiza en columnas y filas 
+        $xmlSheet = simplexml_load_string($zip->getFromName("xl/worksheets/sheet1.xml"));
+        
+        foreach ($xmlSheet->sheetData->row as $row) {
+            $fila = [];
+            foreach ($row->c as $c) {
+                $value = (string) $c->v;
+                if (isset($c['t']) && $c['t'] == 's') {
+                    $value = $sharedStrings[(int) $value] ?? '';
+                }
+                $fila[] = $value;
+            }
+            $datos[] = $fila;
+        }
+        $zip->close();
+    }
+    return $datos;
+}
+//Comprubea la extension del archivo para saber si es compatible para subir
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['excel'])) {
     $xlsxFile = $_FILES['excel']['tmp_name'];
+    $extension = strtolower(pathinfo($_FILES['excel']['name'], PATHINFO_EXTENSION));
+    
+    if ($extension === 'xlsx') {
+        $datosExcel = procesarXLSX($xlsxFile);
+    } elseif ($extension === 'csv') {
+        $datosExcel = procesarCSV($xlsxFile);
+    } else {
+        echo "<p style='color:red;'>Formato de archivo no soportado. Use XLSX o CSV.</p>";
+        $datosExcel = [];
+    }
 
 } else {
     echo "<p style='color:red;'>Error al subir el archivo.</p>";
 }
+//Son las validaciones del correo para verificar si es valido
 function validarEmail($email)
 {
-    // Eliminar espacios en blanco al inicio y final
+    // sirve para eliminar espacios en blanco al inicio y final
     $email = trim($email);
 
-    // Verificar si empieza con números
+    // verifica si el correo empieza con numeros
     if (preg_match('/^\d/', $email)) {
         return false;
     }
 
-    // Verificar si contiene espacios
+    // cerifica si contiene espacios dentro del correo
     if (strpos($email, ' ') !== false) {
         return false;
     }
 
-    // Verificar si contiene caracteres inválidos (excepto @, ., -, _)
+    // verificar si contiene simbolos o caracterres invalidos
     if (preg_match('/[^a-zA-Z0-9@._-]/', $email)) {
         return false;
     }
 
-    // Verificar formato básico de email
+    // verifica el formato basico del correo
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return false;
     }
 
     return true;
 }
+//Comprueba si todos los campos estan rellenos antes de enviar la informacion
 if (
     empty($nombre_relleno) || empty($sexo_relleno) || empty($edad_relleno) ||
     empty($bday_relleno) || empty($photo_relleno) || empty($telefono_relleno) ||
@@ -109,7 +165,6 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formulario</title>
-    <link rel="stylesheet" href="style.php" media="screen">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -285,18 +340,18 @@ if (
                                     }
                                     $style = "";
 
-                                    // Para la primera fila (encabezados)
+                                    // Para la primera fila 
                                     if ($isFirstRow) {
                                         $style = "background-color: #4e4e4eab; font-weight:bold;";
                                     } else {
-                                        // Aplicar estilos según el tipo de dato y la columna
-                                        if ($colIndex == 1) { // Columna SEXO (segunda columna)
+                                        // Aplica los estilos según el tipo de dato y la columna
+                                        if ($colIndex == 1) { //segunda columna
                                             if (strtoupper($value) === "H") {
                                                 $style = "background-color: #23c7c7ff; font-weight:bold;";
                                             } elseif (strtoupper($value) === "M") {
                                                 $style = "background-color: #e33abbff; font-weight:bold;";
                                             }
-                                        } elseif ($colIndex == 2) { // Columna EDAD (tercera columna)
+                                        } elseif ($colIndex == 2) { //tercera columna
                                             if (is_numeric($value)) {
                                                 if ((int) $value < 18) {
                                                     $style = "background-color: #fa3d03ff; font-weight:bold;";
@@ -304,7 +359,7 @@ if (
                                                     $style = "background-color: #8279c5ff; font-weight:bold;";
                                                 }
                                             }
-                                        } elseif ($colIndex == 3) { // Columna CORREO (cuarta columna)
+                                        } elseif ($colIndex == 3) { //cuarta columna
                                             if (validarEmail($value)) {
                                                 $style = "background-color: #5de51fff; font-weight:bold;";
                                             } else {
