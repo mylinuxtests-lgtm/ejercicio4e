@@ -18,7 +18,13 @@ $datosExcel = [];
 //verifica si el directorio existe en el sistema al momento de leer el codigo
 $directorio = "uploads/";
 if (!file_exists($directorio)) {
-    mkdir($directorio, 0777, true);
+    if (!mkdir($directorio, 0755, true)); {
+
+    }
+}
+
+if (file_exists($directorio) && !is_writable($directorio)) {
+
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -39,23 +45,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $sexo_relleno = $_POST['especifique'];
     }
     
-    if (isset($_FILES["photo"])) {
+    if (isset($_FILES["photo"])&& $_FILES["photo"]["error"] == UPLOAD_ERR_OK) {
         $nombreArchivo = basename($_FILES["photo"]["name"]);
         $rutaArchivo = $directorio . $nombreArchivo;
 
-
-        move_uploaded_file($_FILES["photo"]["tmp_name"], $rutaArchivo);
+if (is_writable($directorio)) {
+            if (!move_uploaded_file($_FILES["photo"]["tmp_name"], $rutaArchivo)) {
+                echo "<p style='color:red;'>Error al subir la imagen </p>";
+            }
+        }
+    } elseif (isset($_FILES["photo"])) {
+        echo "<p style='color:red;'>Error al cargar la imagen " . $_FILES["photo"]["error"] . "</p>";
     }
 } else {
-    echo "No se recibió ninguna imagen.";
+    echo "No se recibió ningún formulario.";
 }
 //Verifica que el archivo existe
-$archivo = basename($_FILES["list"]["name"]);
-
-if (file_exists($archivo)) {
-    $lineas = file_get_contents($archivo);
+if (isset($_FILES["list"]) && $_FILES["list"]["error"] == UPLOAD_ERR_OK) {
+    $archivo = $_FILES["list"]["tmp_name"];
+    if (file_exists($archivo)) {
+        $lineas = file_get_contents($archivo);
+    } else {
+        echo "<p style='color:red;'>El archivo <strong>$archivo</strong> no existe.</p>";
+    }
 } else {
-    echo "<p style='color:red;'>El archivo <strong>$archivo</strong> no existe.</p>";
+    echo "<p style='color:red;'>Error al subir el archivo</p>";
 }
 //Comprueba la extension del archivo y extrae los datos
 function procesarCSV($archivo) {
@@ -95,11 +109,13 @@ function procesarXLSX($archivo) {
             $datos[] = $fila;
         }
         $zip->close();
-    }
     return $datos;
+    } else {
+        return []; 
+    }
 }
 //Comprubea la extension del archivo para saber si es compatible para subir
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['excel'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['excel']) && $_FILES['excel']['error'] == UPLOAD_ERR_OK) {
     $xlsxFile = $_FILES['excel']['tmp_name'];
     $extension = strtolower(pathinfo($_FILES['excel']['name'], PATHINFO_EXTENSION));
     
@@ -290,6 +306,7 @@ if (
             <h2>Domicilio</h2>
             <p> <?php echo nl2br(htmlspecialchars($domicilio_relleno)); ?> </p>
         </div>
+        
         <div class="table">
 
             <table class="table table-success table-striped">
@@ -350,27 +367,21 @@ if (
                                                 $style = "background-color: #5de51fff; font-weight:bold;";
                                             } else {
                                                 $style = "background-color: #ff0342ff; font-weight:bold;";
-                                            }
-                                        }
-                                    }
-
-                                    echo "<td style='$style' class='$class'>" . htmlspecialchars($value) . "</td>";
-                                    $colIndex++;
-                                }
-                                echo "</tr>";
-                                $isFirstRow = false;
+                                            } 
                             }
-                            echo "</table>";
-                            $zip->close();
-                        } else {
-                            echo "<p style='color:red;'>No se pudo abrir el archivo.</p>";
                         }
 
-                    ?>
-                </tr>
-
-            </tbody>
-        </table> <br> <br>
+                        echo "<td style='$style'>" . htmlspecialchars($value) . "</td>";
+                        $colIndex++;
+                    }
+                    echo "</tr>";
+                    $isFirstRow = false;
+                }
+                echo "</table>";
+            } else {
+                echo "<p style='color:red;'>No se pudieron procesar los datos del archivo.</p>";
+            }
+            ?> <br><br>
         <div>
             <a href="Formulario.html" class="back-link">Volver al formulario</a> <br><br>
         </div>
