@@ -13,6 +13,7 @@ $excel_relleno = "";
 $error = "";
 $rutaArchivo = "";
 $xlsxFile = "";
+$datosExcel = []; 
 
 //verifica si el directorio existe en el sistema al momento de leer el codigo
 $directorio = "uploads/";
@@ -315,30 +316,15 @@ if (
             <tbody>
                 <tr>
                     <?php
-                    if (is_uploaded_file($xlsxFile)) {
-                        $zip = new ZipArchive;
-                        if ($zip->open($xlsxFile) === TRUE) {
-                            $sharedStrings = [];
-                            if (($xmlStrings = $zip->getFromName("xl/sharedStrings.xml")) !== false) {
-                                $xmlStrings = simplexml_load_string($xmlStrings);
-                                foreach ($xmlStrings->si as $item) {
-                                    $sharedStrings[] = (string) $item->t;
-                                }
-                            }
-
-                            $xmlSheet = simplexml_load_string($zip->getFromName("xl/worksheets/sheet1.xml"));
-
-                            echo "<table border='1' cellpadding='5'>";
-
-                            foreach ($xmlSheet->sheetData->row as $row) {
-                                echo "<tr>";
-                                $colIndex = 0;
-                                foreach ($row->c as $c) {
-                                    $value = (string) $c->v;
-                                    if (isset($c['t']) && $c['t'] == 's') {
-                                        $value = $sharedStrings[(int) $value] ?? '';
-                                    }
-                                    $style = "";
+                    if (!empty($datosExcel)) {
+                        echo "<table border='1' cellpadding='5'>";
+                        
+                        $isFirstRow = true;
+                        foreach ($datosExcel as $fila) {
+                            echo "<tr>";
+                            $colIndex = 0;
+                            foreach ($fila as $value) {
+                                $style = "";
 
                                     // Para la primera fila 
                                     if ($isFirstRow) {
@@ -379,7 +365,7 @@ if (
                         } else {
                             echo "<p style='color:red;'>No se pudo abrir el archivo.</p>";
                         }
-                    }
+
                     ?>
                 </tr>
 
