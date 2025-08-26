@@ -1,5 +1,6 @@
 <?php
 
+$errores = [];
 $nombre_relleno = "";
 $sexo_relleno = "";
 $edad_relleno = "";
@@ -19,14 +20,12 @@ $datosExcel = [];
 $directorio = "uploads/";
 if (!file_exists($directorio)) {
     if (!mkdir($directorio, 0755, true)); {
-
-    }
+        array_push($errores, "Error: No se pudo crear el directorio 'uploads'");    }
 }
 
 if (file_exists($directorio) && !is_writable($directorio)) {
 
 }
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $nombre_relleno = isset($_POST['nombre']) ? $_POST['nombre'] : "";
@@ -76,7 +75,7 @@ function procesarCSV($archivo) {
     $datos = [];
     if (($handle = fopen($archivo, "r")) !== FALSE) {
         while (($fila = fgetcsv($handle, 1000, ",")) !== FALSE) {
-            $datos[] = $fila;
+            array_push($datos, $fila);
         }
         fclose($handle);
     }
@@ -91,7 +90,7 @@ function procesarXLSX($archivo) {
         if (($xmlStrings = $zip->getFromName("xl/sharedStrings.xml")) !== false) {
             $xmlStrings = simplexml_load_string($xmlStrings);
             foreach ($xmlStrings->si as $item) {
-                $sharedStrings[] = (string) $item->t;
+                array_push($sharedStrings, (string) $item->t); // Usando array_push()
             }
         }
         //extrae los datos y los organiza en columnas y filas 
@@ -318,9 +317,18 @@ if (
                 </thead>
                 <tbody>
                     <tr><?php //var_dump($lineas);
-                    $lineas = explode(",", $lineas);
-                    foreach ($lineas as $linea) {
+                    $lineasArray = explode(",", $lineas);
+                    $nombresProcesados = [];
+                    foreach ($lineasArray as $linea) {
+                         if (!empty(trim($linea))) {
                         $name = explode(" ", $linea);
+                         array_push($nombresProcesados, [
+            'nombre' => isset($name[0]) ? $name[0] : '',
+            'apellido' => isset($name[1]) ? $name[1] : ''
+        ]);
+    }
+
+
                         ?>
                             <th scope="col"><?php echo $name[0]; ?></th>
                             <th scope="col"><?php echo $name[1]; ?></th>
